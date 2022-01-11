@@ -76,9 +76,11 @@ class myhandler(BaseHTTPRequestHandler):
                             (self.client_address[0],
                              self.log_date_time_string(),
                              format % args))
+                             adsadasdsaldas;l
     '''
     server_version="GoAhead-Webs"
     sys_version=""
+
     def do_GET(self):
         webpath = '..' + os.path.sep + 'srv' + os.path.sep + 'www' + os.path.sep
         webpath_exists = os.path.exists(webpath)
@@ -91,7 +93,16 @@ class myhandler(BaseHTTPRequestHandler):
         dte = time.time()
         targetip = local_pub_IP.json()['ip']
         # Each self.<module> item specified here as a variable needs to be specified in db_builder.py as well so that the db has a column to store it.
-        address = self.client_address[0]
+        try:
+            if str(self.headers['X-Forwarded-For']) != "None":
+                address = str(self.headers['X-Forwarded-For'])
+                print("X-Forwarded-For Header Present: " + address)
+            else:
+                address = self.client_address[0]
+        except:
+            address = self.client_address[0]
+            print("X-Forwarded-For exception")
+
         cmd = '%s' % self.command  # same as ubelow
         path = '%s' % self.path  # see below comment
         headers = '%s' % self.headers
@@ -118,9 +129,7 @@ class myhandler(BaseHTTPRequestHandler):
                 #self.send_header('Date', self.date_time_string(time.time()))
                 #self.end_headers()
             else:
-                print(self.client_address[
-                          0
-                      ] + " - - [" + self.date_time_string() + "] - - Useragent: '" + useragentstring + "' needs a custom response.")
+                print(address + " - - [" + self.date_time_string() + "] - - Useragent: '" + useragentstring + "' needs a custom response.")
                 self.send_response(200)  # OK
                 self.send_header('Content-type', 'text/html')
                 self.end_headers()
@@ -192,8 +201,15 @@ class myhandler(BaseHTTPRequestHandler):
         self.send_header('Content-type', 'text/html')
         self.server_version=PRODSTRING
         self.end_headers()
-        print(self.client_address[
-                  0] + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: HEAD request - looking for open proxy.")
+        try:
+            if str(self.headers['X-Forwarded-For']) != "None":
+                address = str(self.headers['X-Forwarded-For'])
+            else:
+                address = self.client_address[0]
+        except:
+            address = self.client_address[0]
+        
+        print(address + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: HEAD request - looking for open proxy.")
 
     def do_CONNECT(self):
         if not _USE_SSL:
@@ -203,8 +219,15 @@ class myhandler(BaseHTTPRequestHandler):
             self.send_header('Server', PRODSTRING)
             self.server_version=PRODSTRING
             self.end_headers()
-            print(self.client_address[
-                      0] + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: CONNECT request - looking for open proxy.")
+            try:
+                if str(self.headers['X-Forwarded-For']) != "None":
+                    address = str(self.headers['X-Forwarded-For'])
+                else:
+                    address = self.client_address[0]
+            except:
+                address = self.client_address[0]
+
+            print(address + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: CONNECT request - looking for open proxy.")
 
     def do_POST(self):
         # Parse the form data posted
@@ -221,6 +244,14 @@ class myhandler(BaseHTTPRequestHandler):
         except:
             useragentstring = ""
 
+        try:
+            if str(self.headers['X-Forwarded-For']) != "None":
+                address = str(self.headers['X-Forwarded-For'])
+            else:
+                address = '%s' % self.client_address[0]
+        except:
+            address = '%s' % self.client_address[0]
+
         rvers = '%s' % self.request_version
         c.execute('''INSERT INTO postlogs (date, headers, address, cmd, path, useragent, vers, summary) VALUES(?, ?, ?, ?, ?, ?, ?, ?)''',
                   (dte, headers, address, cmd, path, useragentstring, rvers, "- standard post"))
@@ -235,8 +266,7 @@ class myhandler(BaseHTTPRequestHandler):
                 self.send_header('Date', self.date_time_string(time.time()))
                 self.end_headers()
             else:
-                print(self.client_address[
-                          0] + " - - [" + self.date_time_string() + "] - - Useragent: '" + useragentstring + "' needs a custom response.")
+                print(address + " - - [" + self.date_time_string() + "] - - Useragent: '" + useragentstring + "' needs a custom response.")
                 self.send_response(200)  # OK
                 self.send_header('Content-type', 'text/html')
                 self.end_headers()

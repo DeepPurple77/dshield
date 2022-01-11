@@ -12,6 +12,14 @@ def sigmatch(self, pattern, module):
     conn = sqlite3.connect(config)
     c = conn.cursor()
     match = 0
+    try:
+        if str(self.headers['X-Forwarded-For']) != "None":
+            address = str(self.headers['X-Forwarded-For'])
+        else:
+            address = self.client_address[0]
+    except:
+        address = self.client_address[0]
+
     pathmatch = c.execute("""SELECT patternString FROM Sigs""").fetchall()
     for i in pathmatch:
         if re.match(i[0], pattern) is not None:
@@ -50,19 +58,16 @@ def sigmatch(self, pattern, module):
                         f = open(responsepath)
                         self.wfile.write(f.read())
                         f.close
-                        print(self.client_address[
-                                  0] + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: " + \
+                        print(address + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: " + \
                               sigDescription[0] + " - - " + pattern)
-                        print(self.client_address[
-                                  0
-                              ] + " - - [" + self.date_time_string() + "] - - Responded with " + str(
+                        print(address + " - - [" + self.date_time_string() + "] - - Responded with " + str(
                             module
                         ) + " response page.")
                         c.execute(
                             """INSERT INTO requests (date, address, cmd, path, useragent, vers, summary) VALUES(?, ?, ?, ?, ?, ?, ?)""",
                             (
                                 self.date_time_string(),
-                                self.client_address[0],
+                                address,
                                 self.command, self.path,
                                 useragentstring,
                                 self.request_version,
@@ -82,19 +87,16 @@ def sigmatch(self, pattern, module):
                         message = f.read().replace('Hello world', script,1)
                         self.wfile.write(message)
                         f.close
-                        print(self.client_address[
-                                  0] + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: " + \
+                        print(address + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: " + \
                               sigDescription[0] + " - - " + pattern)
-                        print(self.client_address[
-                                  0
-                              ] + " - - [" + self.date_time_string() + "] - - Responded with " + str(
+                        print(address + " - - [" + self.date_time_string() + "] - - Responded with " + str(
                             module
                         ) + " response page.")
                         c.execute(
                             """INSERT INTO requests (date, address, cmd, path, useragent, vers, summary) VALUES(?, ?, ?, ?, ?, ?, ?)""",
                             (
                                 self.date_time_string(),
-                                self.client_address[0],
+                                address,
                                 self.command, self.path,
                                 useragentstring,
                                 self.request_version,
@@ -112,19 +114,16 @@ def sigmatch(self, pattern, module):
                         f = open(responsepath)
                         self.wfile.write(f.read())
                         f.close
-                        print(self.client_address[
-                                  0] + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: " + \
+                        print(address + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: " + \
                               sigDescription[0] + " - - " + pattern)
-                        print(self.client_address[
-                                  0
-                              ] + " - - [" + self.date_time_string() + "] - - Responded with " + str(
+                        print(address + " - - [" + self.date_time_string() + "] - - Responded with " + str(
                             module
                         ) + " response page.")
                         c.execute(
                             """INSERT INTO requests (date, address, cmd, path, useragent, vers, summary) VALUES(?, ?, ?, ?, ?, ?, ?)""",
                             (
                                 self.date_time_string(),
-                                self.client_address[0],
+                                address,
                                 self.command, self.path,
                                 useragentstring,
                                 self.request_version,
@@ -142,19 +141,16 @@ def sigmatch(self, pattern, module):
                         f = open(responsepath, 'rb')
                         self.wfile.write(f.read())
                         f.close
-                        print(self.client_address[
-                                  0] + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: " + \
+                        print(address + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: " + \
                               sigDescription[0] + " - - " + pattern)
-                        print(self.client_address[
-                                  0
-                              ] + " - - [" + self.date_time_string() + "] - - Responded with " + str(
+                        print(address + " - - [" + self.date_time_string() + "] - - Responded with " + str(
                             module
                         ) + " response page.")
                         c.execute(
                             """INSERT INTO requests (date, address, cmd, path, useragent, vers, summary) VALUES(?, ?, ?, ?, ?, ?, ?)""",
                             (
                                 self.date_time_string(),
-                                self.client_address[0],
+                                address,
                                 self.command, self.path,
                                 useragentstring,
                                 self.request_version,
@@ -173,8 +169,7 @@ def sigmatch(self, pattern, module):
                         domain = sitecopy.sitecopy(uri[0], remotefiledir)
                         webdirlst = os.listdir(remotefiledir)
                         remote_file_path = ''
-                        print(self.client_address[
-                                  0] + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: " + \
+                        print(address + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: " + \
                               sigDescription[0] + " - - " + pattern)
                         # Only downloads domain from site - to prevent being an open proxy - also has sleep to prevent DDOS.
                         for site in webdirlst:
@@ -189,7 +184,7 @@ def sigmatch(self, pattern, module):
                             """INSERT INTO requests (date, address, cmd, path, useragent, vers, summary) VALUES(?, ?, ?, ?, ?, ?, ?)""",
                             (
                                 self.date_time_string(),
-                                self.client_address[0],
+                                address,
                                 self.command, self.path,
                                 useragentstring,
                                 self.request_version,
@@ -209,19 +204,16 @@ def sigmatch(self, pattern, module):
                             self.wfile.write(message)
                         else:
                             self.wfile.write(str(i[2]))
-                        print(self.client_address[
-                                  0] + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: " + \
+                        print(address + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: " + \
                               sigDescription[0] + " - - " + pattern)
-                        print(self.client_address[
-                                  0
-                              ] + " - - [" + self.date_time_string() + "] - - Responded with " + str(
+                        print(address + " - - [" + self.date_time_string() + "] - - Responded with " + str(
                             module
                         ) + "response page.")
                         c.execute(
                             """INSERT INTO requests (date, address, cmd, path, useragent, vers, summary) VALUES(?, ?, ?, ?, ?, ?, ?)""",
                             (
                                 self.date_time_string(),
-                                self.client_address[0],
+                                address,
                                 self.command, self.path,
                                 useragentstring,
                                 self.request_version,
