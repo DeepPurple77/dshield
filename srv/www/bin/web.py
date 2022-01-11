@@ -18,13 +18,14 @@ import sys
 PORT_NUMBER = 8000
 PRODSTRING = 'Apache/3.2.3'
 
-
 # got a webserver DB and will prolly have honeypot DB for dorks if we have sqlinjection
 config = '..' + os.path.sep + 'DB' + os.path.sep + 'webserver.sqlite'
 honeydb = '..' + os.path.sep + 'DB' + os.path.sep + 'config.sqlite'
 # will be if user sets up SSL cert and key
 certpath = '..' + os.path.sep + 'domain.crt'
 keypath = '..' + os.path.sep + 'domain.key'
+#proxy config file
+proxyconfigfile = '..' + os.path.sep + "etc/proxy.ini"
 
 # Query to DShield API to determine local public IP address
 
@@ -66,6 +67,27 @@ class SecureHTTPServer(HTTPServer):
         self.server_bind()
         self.server_activate()
 
+def get_proxy():
+    with open(proxyconfigfile) as config_f:
+        configfile = config_f.readlines()
+    for line in configfile:
+        if 'proxy_server' in line:
+            proxy_server = line.strip().split("=")
+            return proxy_server
+    return False
+
+def get_address(self):
+    try:
+        if str(self.headers['X-Forwarded-For']) != "None" and self.client_address[0] == proxy_server:
+            address = str(self.headers['X-Forwarded-For'])
+        else:
+            address = self.client_address[0]
+    except:
+        address = self.client_address[0]
+        print("X-Forwarded-For exception")
+
+    return address
+
 # This class will handles any incoming request from
 # the browser
 class myhandler(BaseHTTPRequestHandler):
@@ -93,16 +115,7 @@ class myhandler(BaseHTTPRequestHandler):
         dte = time.time()
         targetip = local_pub_IP.json()['ip']
         # Each self.<module> item specified here as a variable needs to be specified in db_builder.py as well so that the db has a column to store it.
-        try:
-            if str(self.headers['X-Forwarded-For']) != "None":
-                address = str(self.headers['X-Forwarded-For'])
-                print("X-Forwarded-For Header Present: " + address)
-            else:
-                address = self.client_address[0]
-        except:
-            address = self.client_address[0]
-            print("X-Forwarded-For exception")
-
+        
         cmd = '%s' % self.command  # same as ubelow
         path = '%s' % self.path  # see below comment
         headers = '%s' % self.headers
@@ -117,7 +130,7 @@ class myhandler(BaseHTTPRequestHandler):
         #self.send_response(200)
         rvers = '%s' % self.request_version
         c.execute("""INSERT INTO requests (date, headers, address, cmd, path, useragent, vers, summary,targetip) VALUES(?, ?, ?, ?, ?, ?, ?, ?,?)""",
-                  (dte, headers, address, cmd, path, useragentstring, rvers, '- Standard Request.',targetip))
+                  (dte, headers, get_address(self), cmd, path, useragentstring, rvers, '- Standard Request.',targetip))
         try:
             c.execute("""INSERT INTO useragents (useragent) VALUES (?)""", [useragentstring])
         except sqlite3.IntegrityError:
@@ -129,7 +142,7 @@ class myhandler(BaseHTTPRequestHandler):
                 #self.send_header('Date', self.date_time_string(time.time()))
                 #self.end_headers()
             else:
-                print(address + " - - [" + self.date_time_string() + "] - - Useragent: '" + useragentstring + "' needs a custom response.")
+                print(get_address(self) + " - - [" + self.date_time_string() + "] - - Useragent: '" + useragentstring + "' needs a custom response.")
                 self.send_response(200)  # OK
                 self.send_header('Content-type', 'text/html')
                 self.end_headers()
@@ -162,13 +175,13 @@ class myhandler(BaseHTTPRequestHandler):
             self.wfile.write(f.read())
             f.close()
         conn.commit()
-        if sigmatch.sigmatch(self, path, 'robots') == 1:
+        if sigmatch.sigmatch(self, path, 'robots', proxy_server) == 1:
             pass
-        elif sigmatch.sigmatch(self, path, 'lfi') == 1:
+        elif sigmatch.sigmatch(self, path, 'lfi', proxy_server) == 1:
             pass
-        elif sigmatch.sigmatch(self, path, 'rfi') == 1:
+        elif sigmatch.sigmatch(self, path, 'rfi', proxy_server) == 1:
             pass
-        elif sigmatch.sigmatch(self, path, 'phpmyadmin') == 1:
+        elif sigmatch.sigmatch(self, path, 'phpmyadmin', proxy_server) == 1:
             pass
         else:  # default
             message_parts = [
@@ -201,15 +214,8 @@ class myhandler(BaseHTTPRequestHandler):
         self.send_header('Content-type', 'text/html')
         self.server_version=PRODSTRING
         self.end_headers()
-        try:
-            if str(self.headers['X-Forwarded-For']) != "None":
-                address = str(self.headers['X-Forwarded-For'])
-            else:
-                address = self.client_address[0]
-        except:
-            address = self.client_address[0]
         
-        print(address + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: HEAD request - looking for open proxy.")
+        print(get_address(self) + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: HEAD request - looking for open proxy.")
 
     def do_CONNECT(self):
         if not _USE_SSL:
@@ -219,21 +225,14 @@ class myhandler(BaseHTTPRequestHandler):
             self.send_header('Server', PRODSTRING)
             self.server_version=PRODSTRING
             self.end_headers()
-            try:
-                if str(self.headers['X-Forwarded-For']) != "None":
-                    address = str(self.headers['X-Forwarded-For'])
-                else:
-                    address = self.client_address[0]
-            except:
-                address = self.client_address[0]
 
-            print(address + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: CONNECT request - looking for open proxy.")
+            print(get_address(self) + " - - [" + self.date_time_string() + "] - - Malicious pattern detected: CONNECT request - looking for open proxy.")
 
     def do_POST(self):
         # Parse the form data posted
         # try:
         dte = self.date_time_string()
-        address = '%s' % self.client_address[0]
+        address = '%s' % get_address(self)
         cmd = '%s' % self.command
         path = '%s' % self.path
         headers = '%s' % self.headers
@@ -243,14 +242,6 @@ class myhandler(BaseHTTPRequestHandler):
                 useragentstring = str(self.headers['user-agent'])
         except:
             useragentstring = ""
-
-        try:
-            if str(self.headers['X-Forwarded-For']) != "None":
-                address = str(self.headers['X-Forwarded-For'])
-            else:
-                address = '%s' % self.client_address[0]
-        except:
-            address = '%s' % self.client_address[0]
 
         rvers = '%s' % self.request_version
         c.execute('''INSERT INTO postlogs (date, headers, address, cmd, path, useragent, vers, summary) VALUES(?, ?, ?, ?, ?, ?, ?, ?)''',
@@ -284,15 +275,15 @@ class myhandler(BaseHTTPRequestHandler):
         # or matches xml page see -  https://github.com/mushorg/glastopf/blob/master/glastopf/requests.xml
         match = 0
         conn.commit()
-        sigmatch.sigmatch(self, path, 'lfi')
-        sigmatch.sigmatch(self, path, 'robots')
-        sigmatch.sigmatch(self, path, 'rfi')
+        sigmatch.sigmatch(self, path, 'lfi', proxy_server)
+        sigmatch.sigmatch(self, path, 'robots', proxy_server)
+        sigmatch.sigmatch(self, path, 'rfi', proxy_server)
 
         for key in sorted(postvars):
             val = postvars[key]
             conn.commit()
-            sigmatch.sigmatch(self, val[0], 'sqli')
-            sigmatch.sigmatch(self, val[0], 'xss')
+            sigmatch.sigmatch(self, val[0], 'sqli', proxy_server)
+            sigmatch.sigmatch(self, val[0], 'xss', proxy_server)
 
         if match != 1:
             # Get the "Back" link.
@@ -404,6 +395,25 @@ if __name__ == "__main__":
         build_db()
         conn = sqlite3.connect(config)
         c = conn.cursor()
+
+        try:
+            proxy_config = get_proxy();
+            if (proxy_config != False and proxy_config[1] != ""):
+                print("Proxy Server IP Address: " + proxy_config[1])
+                proxy_server = proxy_config[1]
+            else:
+                proxy_server=""
+        except FileNotFoundError:
+            print("The file " + proxyconfigfile + " could not be found, assuming no proxy required")
+            proxy_server=""
+
+        except PermissionError:
+            print("The file " + proxyconfigfile + " could not be opened due to incorrect permissions")
+            proxy_server=""
+        except Exception as e:
+            print(e)
+            proxy_server=""
+
         try:
           server = HTTPServer(('', PORT_NUMBER), myhandler)
         except OSError as e:
@@ -419,6 +429,7 @@ if __name__ == "__main__":
         print('Started httpserver on port ', PORT_NUMBER)
         # Wait forever for incoming http requests
         server.serve_forever()
+    
     except KeyboardInterrupt:
         print('^C received, shutting down the web server')
     os.remove(pidfile)

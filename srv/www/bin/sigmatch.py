@@ -6,19 +6,20 @@ import os
 import sqlite3
 
 
-def sigmatch(self, pattern, module):
+def sigmatch(self, pattern, module, proxy_server):
     config = '..' + os.path.sep + 'DB' + os.path.sep + 'webserver.sqlite'
     honeydb = '..' + os.path.sep + 'DB' + os.path.sep + 'config.sqlite'
     conn = sqlite3.connect(config)
     c = conn.cursor()
     match = 0
     try:
-        if str(self.headers['X-Forwarded-For']) != "None":
+        if str(self.headers['X-Forwarded-For']) != "None" and self.client_address[0] == proxy_server:
             address = str(self.headers['X-Forwarded-For'])
         else:
             address = self.client_address[0]
     except:
         address = self.client_address[0]
+        print("Sigmatch: X-Forwarded-For exception")
 
     pathmatch = c.execute("""SELECT patternString FROM Sigs""").fetchall()
     for i in pathmatch:
